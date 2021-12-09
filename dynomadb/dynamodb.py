@@ -37,7 +37,6 @@ def get_item(table_name, key_value):
 
 
 def put_item(table_name, item):
-
     table = dynamodb.Table(table_name)
     res = table.put_item(Item=item)
     return res
@@ -48,10 +47,9 @@ def add_relation(table_name, attribute_name1, attribute_name2, attribute_value1,
     dts = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(dt))'''
 
     item = {
-        "relation_id": str(uuid.uuid4()),
-        "version_id": str(uuid.uuid4()),
         attribute_name1: attribute_value1,
-        attribute_name2: attribute_value2
+        attribute_name2: attribute_value2,
+        "version_id": str(uuid.uuid4()),
     }
 
     res = put_item(table_name, item=item)
@@ -61,24 +59,17 @@ def add_relation(table_name, attribute_name1, attribute_name2, attribute_value1,
 
 '''
     table_name = "User-Event"
-    attribute_name = "user_id"
-    attribute_value = "24"
+    attribute_name = "event_id"
+    attribute_value = "5"
     res = db.find_by_attribute(table_name, attribute_name, attribute_value)
     print("t2 -- res = ", json.dumps(res, indent=3))
     
     output:
-    t2 -- res =  [
+t2 -- res =  [
    {
-      "event_id": "3",
-      "user_id": "24",
-      "version_id": "b8eb15c3-e4d0-4206-8518-0273bdf50cb5",
-      "relation_id": "a27b2819-25aa-4f89-8a65-4951cf3d1aac"
-   },
-   {
-      "event_id": "4",
-      "user_id": "24",
-      "version_id": "e044b512-5ffe-46b9-a4a4-2aada7198df0",
-      "relation_id": "acb1d137-6cf1-4f54-965c-1f11e8105916"
+      "event_id": "5",
+      "user_id": "1",
+      "version_id": "69"
    }
 ]
 '''

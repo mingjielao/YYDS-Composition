@@ -8,15 +8,15 @@ def t1():
 
     res = db.get_item("User-Event",
                       {
-                          "relation_id": "a27b2819-25aa-4f89-8a65-4951cf3d1aac"
+                          "user_id": "1"
                       })
     print("Result = \n", json.dumps(res, indent=4, default=str))
 
 #find_by_attribute(table_name, attribute_name, attribute_value):
 def t2():
     table_name = "User-Event"
-    attribute_name = "user_id"
-    attribute_value = "24"
+    attribute_name = "event_id"
+    attribute_value = "5"
     res = db.find_by_attribute(table_name, attribute_name, attribute_value)
     print("t2 -- res = ", json.dumps(res, indent=3))
 
