@@ -123,7 +123,8 @@ def getEventDetail(event_id):
         name='get-event-detail',
         input=json.dumps({"event_id":event_id})
     )
-    return response
+    res = json.loads(response['output'])['body']
+    return Response(res, status=200, content_type="application/json")
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
