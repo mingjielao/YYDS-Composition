@@ -6,6 +6,7 @@ import logging
 import requests
 import asyncio
 import ast
+import boto3
 
 from utils.rest_utils import RESTContext
 from middleware.service_factory import ServiceFactory
@@ -72,11 +73,11 @@ GROUP_ENDPOINT = 'http://127.0.0.1:5003/api'
 
 @app.route('/api/registeredEvents', methods=["GET"])
 def registeredEvents():
-    a = requests.get(USER_ENDPOINT + '/getEvent/1').text
     eventIds = ast.literal_eval(requests.get(USER_ENDPOINT + '/getEvent/1').text)
 
     eventList = []
     for eventId in eventIds:
+        a = requests.get(EVENT_ENDPOINT + '/event/' + eventId)
         eventList.append(requests.get(EVENT_ENDPOINT + '/event/' + eventId).text)
 
     return Response(json.dumps(eventList, default=list), status=200, content_type="application/json")
@@ -113,6 +114,16 @@ def addUserEvent(user_id, event_id):
 def removeUserEvent(user_id, event_id):
     asyncio.run(removeUserEventRelation(user_id, event_id))
     return Response(json.dumps('Success', default=str), status=200, content_type="application/json")
+
+@app.route('/api/getEventDetail/<event_id>', methods=["GET"])
+def getEventDetail(event_id):
+    client = boto3.client('stepfunctions')
+    response = client.start_sync_execution(
+        stateMachineArn='arn:aws:states:us-east-2:770569437322:stateMachine:MyStateMachineSync',
+        name='get-event-detail',
+        input=json.dumps({"event_id":event_id})
+    )
+    return response
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
