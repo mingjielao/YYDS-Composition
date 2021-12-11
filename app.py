@@ -66,9 +66,9 @@ def hello_world():
 
 
 # END_POINT_DOMAIN_NAME = 'http://ec2-18-217-39-84.us-east-2.compute.amazonaws.com:5001'
-USER_ENDPOINT = 'http://127.0.0.1:5001/api'
-EVENT_ENDPOINT = 'http://127.0.0.1:5002/api'
-GROUP_ENDPOINT = 'http://127.0.0.1:5003/api'
+USER_ENDPOINT = 'http://ec2-3-145-97-0.us-east-2.compute.amazonaws.com:5001/api'
+EVENT_ENDPOINT = 'http://ec2-3-145-97-0.us-east-2.compute.amazonaws.com:5002/api'
+GROUP_ENDPOINT = 'http://ec2-3-145-97-0.us-east-2.compute.amazonaws.com:5003/api'
 
 
 @app.route('/api/registeredEvents', methods=["GET"])
@@ -124,6 +124,24 @@ def getEventDetail(event_id):
         input=json.dumps({"event_id":event_id})
     )
     return response
+
+@app.route('/api/createNewEvent', methods=["POST"])
+def creatNewEvent():
+    organizer_id = request.json['organizer_id']
+    starttime = request.json['starttime']
+    endtime = request.json['endtime']
+    description = request.json['description']
+    type_json = request.json['type']
+    venue_json = request.json['venue']
+
+    res1 = json.loads(requests.post(EVENT_ENDPOINT + '/eventtype', json=type_json).content)
+    res2 = json.loads(requests.post(EVENT_ENDPOINT + '/eventvenue', json=venue_json).content)
+    new_type_id = res1['location'].split('/')[3]
+    new_venue_id = res2['location'].split('/')[3]
+
+    new_event_json = {'organizer_id': organizer_id, 'type_id': new_type_id, 'venue_id': new_venue_id, 'starttime': starttime, 'endtime': endtime, 'description': description}
+    result = requests.post(EVENT_ENDPOINT + '/event', json=new_event_json).text
+    return result
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
