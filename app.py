@@ -3,11 +3,17 @@ from flask import Flask, Response, request, redirect, url_for, session
 from flask_cors import CORS
 import json
 import logging
+import requests
+import asyncio
+import ast
+import boto3
 
 from utils.rest_utils import RESTContext
 from middleware.service_factory import ServiceFactory
 from flask_dance.contrib.google import make_google_blueprint, google
 import middleware.security as security
+
+from compo_tests import compo_test
 
 from middleware.notification import NotificationMiddlewareHandler
 
@@ -35,15 +41,15 @@ app.register_blueprint(blueprint, url_prefix="/login")
 g_bp = app.blueprints.get("google")
 
 
-@app.before_request
-def before_request_func():
-    try:
-        result_ok = security.check_security(request, google, g_bp)
-    except Exception as e:  # or maybe any OAuth2Error
-        return redirect(url_for("google.login"))
-    print("before request...")
-    if not result_ok:
-        return redirect(url_for("google.login"))
+# @app.before_request
+# def before_request_func():
+#     try:
+#         result_ok = security.check_security(request, google, g_bp)
+#     except Exception as e:  # or maybe any OAuth2Error
+#         return redirect(url_for("google.login"))
+#     print("before request...")
+#     if not result_ok:
+#         return redirect(url_for("google.login"))
 
 
 @app.after_request
@@ -55,75 +61,89 @@ def after_request_func(response):
 
 @app.route('/')
 def hello_world():
+    compo_test.test_async()
     return '<u>Hello World!</u>'
 
 
-@app.route('/api/<resource_collection>', methods=["GET", "POST"])
-def do_resource_collection(resource_collection):
-    request_inputs = RESTContext(request, resource_collection)
-    service = ServiceFactory()
-    svc = service.get_service(resource_collection)
-
-    if svc is None:
-        rsp = Response(json.dumps("Resource not found", default=str), status=404, content_type="application/json")
-    elif request_inputs.method == "GET":
-        res = svc.get_by_template(request_inputs.args,
-                                  field_list=request_inputs.fields,
-                                  limit=request_inputs.limit,
-                                  offset=request_inputs.offset)
-        # res = request_inputs.add_pagination(res)
-        rsp = Response(json.dumps(res, default=str), status=200, content_type="application/json")
-    elif request_inputs.method == "POST":
-        res = svc.create(request.get_json())
-        if res == -1:
-            rsp = Response(json.dumps("Bad data", default=str), status=400, content_type="application/json")
-        else:
-            rsp = Response(json.dumps(res, default=str), status=201, content_type="application/json")
-
-    return rsp
+API_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod'
+USER_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/user'
+EVENT_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/event'
+GROUP_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/group'
 
 
-@app.route('/api/<resource_collection>/<resource_id>', methods=["GET", "PUT", "DELETE"])
-def specific_resource(resource_collection, resource_id):
-    request_inputs = RESTContext(request, resource_collection)
-    service = ServiceFactory()
-    svc = service.get_service(resource_collection)
+@app.route('/getMyEvents', methods=["GET"])
+def registeredEvents():
+    eventIds = ast.literal_eval(requests.get(USER_ENDPOINT + '/getEvent/1').text)
 
-    if svc is None:
-        rsp = Response(json.dumps("Resource not found", default=str), status=404, content_type="application/json")
-    elif request_inputs.method == "GET":
-        res = svc.get_by_resource_id(resource_id, field_list=request_inputs.fields)
-        if res == ():
-            rsp = Response(json.dumps("Id not found", default=str), status=404, content_type="application/json")
-        else:
-            rsp = Response(json.dumps(res, default=str), status=200, content_type="application/json")
-    elif request_inputs.method == "PUT":
-        res = svc.put_by_resource_id(resource_id, request.get_json())
-        rsp = Response(json.dumps(res, default=str), status=200, content_type="application/json")
-    elif request_inputs.method == "DELETE":
-        res = svc.delete_by_resource_id(resource_id)
-        rsp = Response(json.dumps(res, default=str), status=204, content_type="application/json")
-    return rsp
+    eventList = []
+    for eventId in eventIds:
+        a = requests.get(EVENT_ENDPOINT + '/event/' + eventId)
+        eventList.append(requests.get(EVENT_ENDPOINT + '/event/' + eventId).text)
+
+    return Response(json.dumps(eventList, default=list), status=200, content_type="application/json")
 
 
-@app.route('/api/event/<resource_id>/<linked_resource>', methods=["GET"])
-def linked_resource(resource_id, linked_resource):
-    request_inputs = RESTContext(request, "event")
-    service = ServiceFactory()
-    svc = service.get_service("event")
-    linked_svc = service.get_service(linked_resource)
+async def userAddEvent(user, event):
+    res = requests.post(USER_ENDPOINT + '/addEvent/' + user + '/' + event).text
+    return res
 
-    if linked_svc is None:
-        rsp = Response(json.dumps("Linked resource not found", default=str), status=404,
-                       content_type="application/json")
-    elif linked_resource == "eventvenue" or linked_resource == "eventtype" or linked_resource == "eventorganizer":
-        field_name = linked_resource[5:] + "_id"
-        res = linked_svc.get_by_resource_id(
-            str(svc.get_by_resource_id(resource_id, field_list=[field_name])[0][field_name]),
-            field_list=request_inputs.fields)
-        rsp = Response(json.dumps(res, default=str), status=200, content_type="application/json")
-    return rsp
+async def eventAddUser(event, user):
+    res = requests.post(EVENT_ENDPOINT + '/addUser/' + event + '/' + user).text
+    return res
 
+async def addUserEventRelation(user_id, event_id):
+    await asyncio.gather(userAddEvent(user_id, event_id), eventAddUser(event_id, user_id))
+
+async def userRemoveEvent(user, event):
+    res = requests.delete(USER_ENDPOINT + '/removeEvent/' + user + '/' + event).text
+    return res
+
+async def eventRemoveUser(event, user):
+    res = requests.delete(EVENT_ENDPOINT + '/removeUser/' + event + '/' + user).text
+    return res
+
+async def removeUserEventRelation(user_id, event_id):
+    await asyncio.gather(userRemoveEvent(user_id, event_id), eventRemoveUser(event_id, user_id))
+
+@app.route('/addUserEvent/<user_id>/<event_id>', methods=["POST"])
+def addUserEvent(user_id, event_id):
+    asyncio.run(addUserEventRelation(user_id, event_id))
+    return Response(json.dumps('Success', default=str), status=200, content_type="application/json")
+
+@app.route('/removeUserEvent/<user_id>/<event_id>', methods=["DELETE"])
+def removeUserEvent(user_id, event_id):
+    asyncio.run(removeUserEventRelation(user_id, event_id))
+    return Response(json.dumps('Success', default=str), status=200, content_type="application/json")
+
+@app.route('/getEventDetails/<event_id>', methods=["GET"])
+def getEventDetail(event_id):
+    client = boto3.client('stepfunctions')
+    response = client.start_sync_execution(
+        stateMachineArn='arn:aws:states:us-east-2:770569437322:stateMachine:MyStateMachineSync',
+        name='get-event-detail',
+        input=json.dumps({"event_id":event_id})
+    )
+    res = json.loads(response['output'])['body']
+    return Response(res, status=200, content_type="application/json")
+
+@app.route('/createNewEvent', methods=["POST"])
+def creatNewEvent():
+    organizer_id = 1
+    starttime = request.json['starttime']
+    endtime = request.json['endtime']
+    description = request.json['description']
+    type_id = request.json['type_id']
+    venue_json = request.json['venue']
+		
+    res = json.loads(requests.post(API_ENDPOINT + '/eventvenue', json=venue_json).content)
+    new_venue_id = res['location'].split('/')[3]
+
+    new_event_json = {'organizer_id': organizer_id, 'type_id': type_id, 'venue_id': new_venue_id, 'starttime': starttime, 'endtime': endtime, 'description': description}
+    result = requests.post(EVENT_ENDPOINT, json=new_event_json).text
+    new_event_id=(json.loads(result)['location'].split('/'))[3]
+
+    asyncio.run(addUserEventRelation(str(organizer_id), new_event_id))
+    return result
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
