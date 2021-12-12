@@ -65,14 +65,13 @@ def hello_world():
     return '<u>Hello World!</u>'
 
 
-# END_POINT_DOMAIN_NAME = 'http://ec2-18-217-39-84.us-east-2.compute.amazonaws.com:5001'
 API_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod'
 USER_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/user'
 EVENT_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/event'
 GROUP_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/group'
 
 
-@app.route('/composition/getMyEvents', methods=["GET"])
+@app.route('/getMyEvents', methods=["GET"])
 def registeredEvents():
     eventIds = ast.literal_eval(requests.get(USER_ENDPOINT + '/getEvent/1').text)
 
@@ -85,11 +84,11 @@ def registeredEvents():
 
 
 async def userAddEvent(user, event):
-    res = requests.post(API_ENDPOINT + '/addEvent/' + user + '/' + event).text
+    res = requests.post(USER_ENDPOINT + '/addEvent/' + user + '/' + event).text
     return res
 
 async def eventAddUser(event, user):
-    res = requests.post(EVENT_ENDPOINT + '/eventAddUser/' + event + '/' + user).text
+    res = requests.post(EVENT_ENDPOINT + '/addUser/' + event + '/' + user).text
     return res
 
 async def addUserEventRelation(user_id, event_id):
@@ -106,17 +105,17 @@ async def eventRemoveUser(event, user):
 async def removeUserEventRelation(user_id, event_id):
     await asyncio.gather(userRemoveEvent(user_id, event_id), eventRemoveUser(event_id, user_id))
 
-@app.route('/composition/addUserEvent/<user_id>/<event_id>', methods=["POST"])
+@app.route('/addUserEvent/<user_id>/<event_id>', methods=["POST"])
 def addUserEvent(user_id, event_id):
     asyncio.run(addUserEventRelation(user_id, event_id))
     return Response(json.dumps('Success', default=str), status=200, content_type="application/json")
 
-@app.route('/api/removeUserEvent/<user_id>/<event_id>', methods=["DELETE"])
+@app.route('/removeUserEvent/<user_id>/<event_id>', methods=["DELETE"])
 def removeUserEvent(user_id, event_id):
     asyncio.run(removeUserEventRelation(user_id, event_id))
     return Response(json.dumps('Success', default=str), status=200, content_type="application/json")
 
-@app.route('/composition/getEventDetails/<event_id>', methods=["GET"])
+@app.route('/getEventDetails/<event_id>', methods=["GET"])
 def getEventDetail(event_id):
     client = boto3.client('stepfunctions')
     response = client.start_sync_execution(
@@ -127,7 +126,7 @@ def getEventDetail(event_id):
     res = json.loads(response['output'])['body']
     return Response(res, status=200, content_type="application/json")
 
-@app.route('/composition/createNewEvent', methods=["POST"])
+@app.route('/createNewEvent', methods=["POST"])
 def creatNewEvent():
     organizer_id = 1
     starttime = request.json['starttime']
