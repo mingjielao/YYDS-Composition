@@ -66,12 +66,13 @@ def hello_world():
 
 
 # END_POINT_DOMAIN_NAME = 'http://ec2-18-217-39-84.us-east-2.compute.amazonaws.com:5001'
-USER_ENDPOINT = 'http://ec2-3-145-97-0.us-east-2.compute.amazonaws.com:5001/api'
-EVENT_ENDPOINT = 'http://ec2-3-145-97-0.us-east-2.compute.amazonaws.com:5002/api'
-GROUP_ENDPOINT = 'http://ec2-3-145-97-0.us-east-2.compute.amazonaws.com:5003/api'
+API_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod'
+USER_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/user'
+EVENT_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/event'
+GROUP_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/group'
 
 
-@app.route('/api/registeredEvents', methods=["GET"])
+@app.route('/composition/getMyEvents', methods=["GET"])
 def registeredEvents():
     eventIds = ast.literal_eval(requests.get(USER_ENDPOINT + '/getEvent/1').text)
 
@@ -84,11 +85,11 @@ def registeredEvents():
 
 
 async def userAddEvent(user, event):
-    res = requests.post(USER_ENDPOINT + '/addEvent/' + user + '/' + event).text
+    res = requests.post(API_ENDPOINT + '/addEvent/' + user + '/' + event).text
     return res
 
 async def eventAddUser(event, user):
-    res = requests.post(EVENT_ENDPOINT + '/addUser/' + event + '/' + user).text
+    res = requests.post(EVENT_ENDPOINT + '/eventAddUser/' + event + '/' + user).text
     return res
 
 async def addUserEventRelation(user_id, event_id):
@@ -105,7 +106,7 @@ async def eventRemoveUser(event, user):
 async def removeUserEventRelation(user_id, event_id):
     await asyncio.gather(userRemoveEvent(user_id, event_id), eventRemoveUser(event_id, user_id))
 
-@app.route('/api/addUserEvent/<user_id>/<event_id>', methods=["POST"])
+@app.route('/composition/addUserEvent/<user_id>/<event_id>', methods=["POST"])
 def addUserEvent(user_id, event_id):
     asyncio.run(addUserEventRelation(user_id, event_id))
     return Response(json.dumps('Success', default=str), status=200, content_type="application/json")
@@ -115,7 +116,7 @@ def removeUserEvent(user_id, event_id):
     asyncio.run(removeUserEventRelation(user_id, event_id))
     return Response(json.dumps('Success', default=str), status=200, content_type="application/json")
 
-@app.route('/api/getEventDetail/<event_id>', methods=["GET"])
+@app.route('/composition/getEventDetails/<event_id>', methods=["GET"])
 def getEventDetail(event_id):
     client = boto3.client('stepfunctions')
     response = client.start_sync_execution(
@@ -126,22 +127,23 @@ def getEventDetail(event_id):
     res = json.loads(response['output'])['body']
     return Response(res, status=200, content_type="application/json")
 
-@app.route('/api/createNewEvent', methods=["POST"])
+@app.route('/composition/createNewEvent', methods=["POST"])
 def creatNewEvent():
-    organizer_id = request.json['organizer_id']
+    organizer_id = 1
     starttime = request.json['starttime']
     endtime = request.json['endtime']
     description = request.json['description']
-    type_json = request.json['type']
+    type_id = request.json['type_id']
     venue_json = request.json['venue']
+		
+    res = json.loads(requests.post(API_ENDPOINT + '/eventvenue', json=venue_json).content)
+    new_venue_id = res['location'].split('/')[3]
 
-    res1 = json.loads(requests.post(EVENT_ENDPOINT + '/eventtype', json=type_json).content)
-    res2 = json.loads(requests.post(EVENT_ENDPOINT + '/eventvenue', json=venue_json).content)
-    new_type_id = res1['location'].split('/')[3]
-    new_venue_id = res2['location'].split('/')[3]
+    new_event_json = {'organizer_id': organizer_id, 'type_id': type_id, 'venue_id': new_venue_id, 'starttime': starttime, 'endtime': endtime, 'description': description}
+    result = requests.post(EVENT_ENDPOINT, json=new_event_json).text
+    new_event_id=(json.loads(result)['location'].split('/'))[3]
 
-    new_event_json = {'organizer_id': organizer_id, 'type_id': new_type_id, 'venue_id': new_venue_id, 'starttime': starttime, 'endtime': endtime, 'description': description}
-    result = requests.post(EVENT_ENDPOINT + '/event', json=new_event_json).text
+    asyncio.run(addUserEventRelation(str(organizer_id), new_event_id))
     return result
 
 if __name__ == '__main__':
