@@ -232,11 +232,11 @@ def creatNewEvent():
     type_id = request.json['type_id']
     venue_json = request.json['venue']
 		
-    res = json.loads(requests.post(API_ENDPOINT + '/eventvenue', json=venue_json).content)
+    res = json.loads(requests.post(EVENT_ENDPOINT + '/eventvenue', json=venue_json).content)
     new_venue_id = res['location'].split('/')[3]
 
     new_event_json = {'organizer_id': organizer_id, 'type_id': type_id, 'venue_id': new_venue_id, 'starttime': starttime, 'endtime': endtime, 'description': description}
-    result = requests.post(EVENT_ENDPOINT, json=new_event_json).text
+    result = requests.post(EVENT_ENDPOINT + '/event', json=new_event_json).text
     new_event_id=(json.loads(result)['location'].split('/'))[3]
 
     asyncio.run(addUserEventRelation(str(organizer_id), new_event_id))
