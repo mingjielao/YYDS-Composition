@@ -85,7 +85,8 @@ def recommendedEvents(user_id):
         for eventIdInJoinedGroup in eventIdsInJoinedGroup:
             # if this event id inside (the group that user joined) is not joined by user, append the event info
             if eventIdInJoinedGroup not in joinedEventIds:
-                recommendedEventList.append(requests.get(EVENT_ENDPOINT + '/event/' + eventIdInJoinedGroup).text)
+                a = requests.get(EVENT_ENDPOINT + '/event/' + eventIdInJoinedGroup).json()
+                recommendedEventList.append(a[0])
     return Response(json.dumps(recommendedEventList, default=list), status=200, content_type="application/json")
 
 @app.route('/getMyEvents', methods=["GET"])
