@@ -72,7 +72,7 @@ GROUP_ENDPOINT = 'https://m6p93ab8g4.execute-api.us-east-2.amazonaws.com/prod/gr
 
 
 @app.route('/getMyEvents', methods=["GET"])
-def registeredEvents():
+def getMyEvents():
     eventIds = ast.literal_eval(requests.get(USER_ENDPOINT + '/getEvent/1').text)
 
     eventList = []
@@ -81,7 +81,6 @@ def registeredEvents():
         eventList.append(requests.get(EVENT_ENDPOINT + '/event/' + eventId).text)
 
     return Response(json.dumps(eventList, default=list), status=200, content_type="application/json")
-
 
 async def userAddEvent(user, event):
     res = requests.post(USER_ENDPOINT + '/addEvent/' + user + '/' + event).text
@@ -95,7 +94,8 @@ async def addUserEventRelation(user_id, event_id):
     await asyncio.gather(userAddEvent(user_id, event_id), eventAddUser(event_id, user_id))
 
 async def userRemoveEvent(user, event):
-    res = requests.delete(USER_ENDPOINT + '/removeEvent/' + user + '/' + event).text
+    a = requests.delete(USER_ENDPOINT + '/removeEvent/' + user + '/' + event)
+    res = a.json()
     return res
 
 async def eventRemoveUser(event, user):
@@ -135,11 +135,11 @@ def creatNewEvent():
     type_id = request.json['type_id']
     venue_json = request.json['venue']
 		
-    res = json.loads(requests.post(API_ENDPOINT + '/eventvenue', json=venue_json).content)
+    res = json.loads(requests.post(EVENT_ENDPOINT + '/eventvenue', json=venue_json).content)
     new_venue_id = res['location'].split('/')[3]
 
     new_event_json = {'organizer_id': organizer_id, 'type_id': type_id, 'venue_id': new_venue_id, 'starttime': starttime, 'endtime': endtime, 'description': description}
-    result = requests.post(EVENT_ENDPOINT, json=new_event_json).text
+    result = requests.post(EVENT_ENDPOINT + '/event', json=new_event_json).text
     new_event_id=(json.loads(result)['location'].split('/'))[3]
 
     asyncio.run(addUserEventRelation(str(organizer_id), new_event_id))
